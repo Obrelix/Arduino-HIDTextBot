@@ -180,6 +180,29 @@ void HIDTextBot::begin(bool beginKeyboard, bool beginMouse) {
   nextKeyMs = now;
 }
 
+void HIDTextBot::beginCode(bool beginKeyboard, bool beginMouse, bool switchLayout) {
+  pinMode(_ledPin, OUTPUT);
+  digitalWrite(_ledPin, LOW);
+
+  pinMode(_btnPin, INPUT_PULLUP);
+
+  if (beginKeyboard) Keyboard.begin();
+  if (beginMouse) Mouse.begin();
+
+  runState = RUNNING;
+  notepadOpened = false;
+
+  now = millis();
+  nextActionMs = now;
+  nextMouseMs = now;
+  nextKeyMs = now;
+
+  delay(random(2000, 8000));
+  openCode();
+  notepadOpened = true;
+  delay(random(600, 1500));
+  if (switchLayout) switchLayout_WinSpace();
+}
 
 void HIDTextBot::beginNotePad(bool beginKeyboard, bool beginMouse, bool switchLayout) {
   pinMode(_ledPin, OUTPUT);
@@ -190,7 +213,7 @@ void HIDTextBot::beginNotePad(bool beginKeyboard, bool beginMouse, bool switchLa
   if (beginKeyboard) Keyboard.begin();
   if (beginMouse) Mouse.begin();
 
-  runState = STOPPED;
+  runState = RUNNING;
   notepadOpened = false;
 
   now = millis();
@@ -263,14 +286,33 @@ void HIDTextBot::switchLayout_WinSpace() {
 
 void HIDTextBot::openNotepad() {
   Keyboard.press(KEY_LEFT_GUI);
+  delay(random(40, 80));
   Keyboard.press('r');
   delay(random(60, 100));
   Keyboard.releaseAll();
-  delay(random(180, 280));
+  delay(random(400, 1000));
 
-  Keyboard.print("notepad");
-  delay(random(90, 150));
-  keyTap(KEY_RETURN);
+  typeLine("notepad");
+  // Keyboard.print("notepad");
+  // delay(random(90, 150));
+  // keyTap(KEY_RETURN);
+  delay(random(552, 750));
+}
+
+void HIDTextBot::openCode() {
+  Keyboard.press(KEY_LEFT_GUI);
+  delay(random(40, 80));
+  Keyboard.press('r');
+  delay(random(60, 100));
+  Keyboard.releaseAll();
+  delay(random(300, 1000));
+  typeLine("Code");
+  delay(random(2000, 3050));
+  Keyboard.press(KEY_LEFT_CTRL);
+  delay(random(40, 80));
+  Keyboard.press('n');
+  delay(random(60, 100));
+  Keyboard.releaseAll();
   delay(random(552, 750));
 }
 
@@ -283,7 +325,7 @@ void HIDTextBot::doAltTab() {
   Keyboard.release(KEY_TAB);
   delay(random(8, 15));
 
-  delay(random(800, 2400));
+  delay(random(600, 1400));
 
   delay(random(10, 30));
   Keyboard.press(KEY_TAB);
@@ -291,18 +333,7 @@ void HIDTextBot::doAltTab() {
   Keyboard.release(KEY_TAB);
   delay(random(8, 15));
 
-  delay(random(1200, 3400));
-
-  delay(random(10, 30));
-  Keyboard.press(KEY_LEFT_SHIFT);
-  delay(random(30, 50));
-  Keyboard.press(KEY_TAB);
-  delay(random(30, 50));
-  Keyboard.release(KEY_TAB);
-  Keyboard.release(KEY_LEFT_SHIFT);
-  delay(random(8, 15));
-
-  delay(random(800, 2400));
+  delay(random(600, 1400));
 
   delay(random(10, 30));
   Keyboard.press(KEY_LEFT_SHIFT);
@@ -313,7 +344,16 @@ void HIDTextBot::doAltTab() {
   Keyboard.release(KEY_LEFT_SHIFT);
   delay(random(8, 15));
 
-  delay(random(800, 2400));
+  delay(random(600, 1400));
+
+  delay(random(10, 30));
+  Keyboard.press(KEY_LEFT_SHIFT);
+  delay(random(30, 50));
+  Keyboard.press(KEY_TAB);
+  delay(random(30, 50));
+  Keyboard.release(KEY_TAB);
+  Keyboard.release(KEY_LEFT_SHIFT);
+  delay(random(300, 500));
 
   Keyboard.release(KEY_LEFT_ALT);
   Keyboard.releaseAll();
@@ -331,10 +371,37 @@ void HIDTextBot::deleteLastWord() {
   delay(random(30, 50));
 }
 
+void HIDTextBot::typeLine(const char* p) {
+  int n = (int)strlen(p);
+  for (int i = 0; i < n;) {
+    int rChar = random(0, 1001);
+    now = millis();
+
+    if ((long)(now - nextKeyMs) >= 0) {
+      char ch = p[i];
+
+      if (rChar < 980) {
+        Keyboard.print(ch);
+        nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs);
+        i++;
+      } else {
+        char charSetChar = charset[random(0, charsetCount)];
+        Keyboard.print(charSetChar);
+        delay((unsigned long)random(keyDelayMinMs, keyDelayMaxMs * 3));
+        keyTap(KEY_BACKSPACE);
+        delay((unsigned long)random(keyDelayMinMs, keyDelayMaxMs * 5));
+        Keyboard.print(ch);
+        nextKeyMs = millis() + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs);
+        i++;
+      } 
+    }
+  }
+  delay((unsigned long)random(keyDelayMinMs, keyDelayMaxMs * 3));
+  keyTap(KEY_RETURN);
+}
+
 void HIDTextBot::typeRandomLine() {
   int rWord = random(0, 101);
-  // const char* p = phrases[random(0, phrasesCount)];
-  // int n = (int)strlen(p);
   char pbuf[160];  // adjust size if you add longer phrases
   loadPhraseFromProgmem((uint16_t)random(0, phrasesCount), pbuf, sizeof(pbuf));
 
@@ -374,6 +441,127 @@ void HIDTextBot::typeRandomLine() {
   keyTap(KEY_RETURN);
 }
 
+void HIDTextBot::startRandomLine() {
+  // Load a random phrase into the typing buffer (PROGMEM -> RAM)
+  loadPhraseFromProgmem((uint16_t)random(0, phrasesCount), _typing.buf, sizeof(_typing.buf));
+  _typing.len = (uint16_t)strlen(_typing.buf);
+  _typing.i = 0;
+
+  // Decide if we should delete last word at the end
+  int rWord = random(0, 101);
+  _typing.doDeleteWord = (rWord > 98);
+
+  _typing.pendingCorrect = 0;
+  _typing.phase = TP_NORMAL;
+  _typing.active = true;
+
+  // Allow immediate typing if nextKeyMs is in the past
+  nextKeyMs = now;
+}
+
+void HIDTextBot::stepRandomLine() {
+  if (!_typing.active) return;
+
+  // Only act when it's time
+  if ((long)(now - nextKeyMs) < 0) return;
+
+  // If finished all characters, move to end phases (delete word / return)
+  if (_typing.i >= (int16_t)_typing.len) {
+    if (_typing.phase == TP_NORMAL) {
+      _typing.phase = TP_RETURN;
+    }
+  }
+
+  switch (_typing.phase) {
+
+    case TP_NORMAL: {
+      // If we somehow went negative, clamp
+      if (_typing.i < 0) _typing.i = 0;
+
+      // If done, fall through next call to DELETEWORD/RETURN
+      if (_typing.i >= (int16_t)_typing.len) {
+        nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs);
+        return;
+      }
+
+      char ch = _typing.buf[_typing.i];
+      int rChar = random(0, 1001);
+
+      if (rChar < 980) {
+        // Normal character
+        Keyboard.print(ch);
+        _typing.i++;
+        nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs);
+
+      }else{// else if (rChar < 990) {
+        // Mistype: print a random charset char, then backspace, then correct char
+        char wrong = charset[random(0, charsetCount)];
+        Keyboard.print(wrong);
+
+        _typing.pendingCorrect = ch;
+        _typing.phase = TP_MISTAKE_BACKSPACE;
+
+        nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs * 3);
+
+      }// } else {
+      //   // Random backspace (and step back in the phrase)
+      //   _typing.pendingCorrect = ch;
+      //   _typing.phase = TP_MISTAKE_CORRECT;
+      //   Keyboard.write(KEY_BACKSPACE);
+      //   nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs*5);
+      //   // // _typing.i--;
+      //   // if (_typing.i < 0) _typing.i = 0;
+
+      //   // nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs*5);
+      // }
+      break;
+    }
+
+    case TP_MISTAKE_BACKSPACE: {
+      Keyboard.write(KEY_BACKSPACE);
+      _typing.phase = TP_MISTAKE_CORRECT;
+      nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs * 5);
+      break;
+    }
+
+    case TP_MISTAKE_CORRECT: {
+      Keyboard.print(_typing.pendingCorrect);
+      _typing.pendingCorrect = 0;
+      _typing.i++;
+      _typing.phase = TP_NORMAL;
+      nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs*3);
+      break;
+    }
+
+    case TP_DELETEWORD: {
+      // Non-blocking single-step delete last word: Ctrl+Backspace
+      Keyboard.press(KEY_LEFT_CTRL);
+      Keyboard.write(KEY_BACKSPACE);
+      Keyboard.release(KEY_LEFT_CTRL);
+
+      _typing.phase = TP_RETURN;
+      nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs);
+      break;
+    }
+
+    case TP_RETURN: {
+      Keyboard.write(KEY_RETURN);
+      _typing.active = false;
+      _typing.phase = TP_IDLE;
+
+      // After finishing a line, allow the next action scheduling to proceed
+      nextKeyMs = now + (unsigned long)random(keyDelayMinMs, keyDelayMaxMs);
+      nextActionMs = now + (unsigned long)randBetween(stepDelayMinMs, stepDelayMaxMs);
+      break;
+    }
+
+    default:
+      _typing.active = false;
+      _typing.phase = TP_IDLE;
+      break;
+  }
+}
+
 void HIDTextBot::smallMouseJitter() {
   int dx = (int)randBetween(-mouseJitterMax, mouseJitterMax);
   int dy = (int)randBetween(-mouseJitterMax, mouseJitterMax);
@@ -383,7 +571,7 @@ void HIDTextBot::smallMouseJitter() {
 void HIDTextBot::doOneAction() {
   int r = random(0, 101);
   if (r < 90) {
-    typeRandomLine();
+    startRandomLine();//typeRandomLine();
   } else if (r < 96) {
     doAltTab();
   } else {
@@ -450,6 +638,10 @@ void HIDTextBot::tick() {
 
 void HIDTextBot::doAction() {
   now = millis();
+  if (_typing.active) {
+    stepRandomLine();
+    return;
+  }
   if ((long)(now - nextActionMs) >= 0) {
     doOneAction();
     nextActionMs = now + (unsigned long)randBetween(stepDelayMinMs, stepDelayMaxMs);

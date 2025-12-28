@@ -10,9 +10,9 @@ enum Shape { SH_SQUARE,
 class ShapeStepper {
 public:
 
-  int stepDelayMs = 8;
+  int stepDelayMs = 3;
   int sizePx = 30;
-  int pauseMs = 400;
+  int pauseMs = 5;
 
   unsigned long nextTickMs = 0;
   unsigned long pauseStartMs = 0;

@@ -9,6 +9,7 @@ public:
 
   void begin(bool beginKeyboard = true, bool beginMouse = true);
   void beginNotePad(bool beginKeyboard = true, bool beginMouse = true, bool switchLayout = true);
+  void beginCode(bool beginKeyboard = true, bool beginMouse = true, bool switchLayout = false);
 
   void setDelays(int keyMinMs, int keyMaxMs,
                  long stepMinMs, long stepMaxMs,
@@ -23,6 +24,7 @@ public:
   void doAction();
   void switchLayout_WinSpace();
   void openNotepad();
+  void openCode();
 
 private:
   enum RunState { STOPPED,
@@ -32,10 +34,10 @@ private:
   uint8_t _btnPin;
 
   // Settings (defaults from your code)
-  int keyDelayMinMs = 24;
-  int keyDelayMaxMs = 187;
+  int keyDelayMinMs = 34;
+  int keyDelayMaxMs = 207;
 
-  long stepDelayMinMs = 3300;
+  long stepDelayMinMs = 1300;
   long stepDelayMaxMs = 8400;
 
   long mouseDelayMinMs = 7000;
@@ -72,4 +74,33 @@ private:
   void setNextSchedules();
 
   void handleButton();
+  void typeLine(const char* p);
+  static constexpr uint16_t TYPE_BUF_SZ = 160;
+
+  enum TypePhase : uint8_t {
+    TP_IDLE = 0,
+    TP_NORMAL,
+    TP_MISTAKE_BACKSPACE,
+    TP_MISTAKE_CORRECT,
+    TP_DELETEWORD,   // Ctrl+Backspace once
+    TP_RETURN        // Enter
+  };
+
+  struct {
+    bool active = false;
+    TypePhase phase = TP_IDLE;
+
+    char buf[TYPE_BUF_SZ];
+    uint16_t len = 0;
+    int16_t i = 0;          // current index into buf (can move backward)
+    char pendingCorrect = 0;
+
+    bool doDeleteWord = false;
+  } _typing;
+
+  void startRandomLine();   // loads phrase + arms state
+  void stepRandomLine();    // emits 1 HID action when scheduled
+
+  // (old blocking method removed/replaced)
+  // void typeRandomLine();
 };
